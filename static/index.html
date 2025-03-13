@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tic tac toe</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 5px;
+            justify-content: center;
+            margin: 20px;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            background-color: lightgray;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            cursor: pointer;
+        }
+        .cell.taken {
+            pointer-events: none;
+        }
+        .message {
+            font-size: 1.5rem;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Tttt!</h1>
+<div id="message" class="message">player _'s turn</div>
+
+<div id="board" class="board">
+    <!-- cells -->
+</div>
+
+<button onclick="resetGame()">Reset Game</button>
+
+<script>
+    let currentPlayer = 'X';
+    const board = document.getElementById('board');
+    const message = document.getElementById('message');
+
+    // grid
+    function createBoard() {
+        for (let row = 0; row < 3; row++) {
+            for (let col = 0; col < 3; col++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                cell.dataset.row = row;
+                cell.dataset.col = col;
+                cell.onclick = () => handleMove(row, col, cell);
+                board.appendChild(cell);
+            }
+        }
+    }
+
+    async function handleMove(row, col, cell) {
+        const response = await fetch(`/move/${row}/${col}`, {
+            method: 'POST',
+        });
+        const result = await response.json();
+
+        if (result.status === 'win') {
+            message.textContent = `Player ${result.winner} wins!`;
+            updateBoard();
+        } else if (result.status === 'draw') {
+            message.textContent = 'It\'s a draw!';
+        } else if (result.status === 'continue') {
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+            message.textContent = `Player ${currentPlayer}'s turn`;
+            updateBoard();
+        } else {
+            message.textContent = 'Invalid move, try again.';
+        }
+    }
+
+    function updateBoard() {
+        const cells = document.querySelectorAll('.cell');
+        cells.forEach(cell => {
+            const row = cell.dataset.row;
+            const col = cell.dataset.col;
+            fetch(`/move/${row}/${col}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'continue' || data.status === 'win') {
+                        cell.textContent = data.winner;
+                    }
+                });
+        });
+    }
+
+    async function resetGame() {
+        const response = await fetch('/reset');
+        const result = await response.json();
+        if (result.status === 'reset') {
+            currentPlayer = 'X';
+            message.textContent = `Player ${currentPlayer}'s turn`;
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => cell.textContent = '');
+        }
+    }
+
+    createBoard();
+</script>
+
+</body>
+</html>

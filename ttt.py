@@ -1,48 +1,60 @@
-import numpy as np
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
-def print_board(board):
+app = FastAPI()
+
+# static html
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+board = [['' for _ in range(3)] for _ in range(3)]
+current_player = 'X'
+
+def check_winner():
+    for i in range(3):
+        if board[i][0] == board[i][1] == board[i][2] and board[i][0] != '':
+            return board[i][0]
+        if board[0][i] == board[1][i] == board[2][i] and board[0][i] != '':
+            return board[0][i]
+    if board[0][0] == board[1][1] == board[2][2] and board[0][0] != '':
+        return board[0][0]
+    if board[0][2] == board[1][1] == board[2][0] and board[0][2] != '':
+        return board[0][2]
+    return None
+
+def check_draw():
     for row in board:
-        print(" | ".join(row))
-        print("-" * 9)
+        for cell in row:
+            if cell == '':
+                return False
+    return True
 
-def check_winner(board, player):
-    for row in board:
-        if all(s == player for s in row):
-            return True
-    for col in range(3):
-        if all(board[row][col] == player for row in range(3)):
-            return True
-    if all(board[i][i] == player for i in range(3)) or all(board[i][2 - i] == player for i in range(3)):
-        return True
-    return False
 
-def is_full(board):
-    return all(cell != " " for row in board for cell in row)
+@app.get("/", response_class=HTMLResponse)
+async def get_game():
+    with open("static/index.html", "r") as f:
+        content = f.read()
+    return content
 
-def tic_tac_toe():
-    board = np.array([[" "] * 3 for _ in range(3)])
-    players = ["X", "O"]
-    turn = 0
+@app.post("/move/{row}/{col}")
+async def make_move(row: int, col: int):
+    global current_player
+    if board[row][col] == '':
+        board[row][col] = current_player
+        winner = check_winner()
+        if winner:
+            return {"status": "win", "winner": winner}
+        elif check_draw():
+            return {"status": "draw"}
+        # Switch player
+        current_player = 'O' if current_player == 'X' else 'X'
+        return {"status": "continue"}
+    else:
+        return {"status": "invalid"}
     
-    while True:
-        print_board(board)
-        player = players[turn % 2]
-        try:
-            row, col = map(int, input(f"Player {player}, enter row and column (0-2, separated by space): ").split())
-            if board[row][col] != " ":
-                print("pick another cell. this one's taken!")
-                continue
-            board[row][col] = player
-            if check_winner(board, player):
-                print_board(board)
-                print(f"player {player} wins!")
-                break
-            if is_full(board):
-                print_board(board)
-                print("it's a tie!")
-                break
-            turn += 1
-        except (ValueError, IndexError):
-            print("invalid input")
-
-tic_tac_toe()
+@app.get("/reset")
+async def reset_game():
+    global board, current_player
+    board = [['' for _ in range(3)] for _ in range(3)]
+    current_player = 'X'
+    return {"status": "reset"}
